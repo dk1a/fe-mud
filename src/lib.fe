@@ -1,0 +1,92 @@
+use std::evm
+
+// struct CachedSlotReader {
+//     cur: u256
+//     value: u256
+
+//     pub fn new(offset: u256) -> Self {
+//         return Self {
+//             value: evm::sloadn(offset),
+//             cur: 0
+//         }
+//     }
+
+//     fn read_u8(len: u256) -> u8 {
+//         let shl_value: u256 = evm::shl(bits: cur * 8, value: self.value)
+//         let shr_value: u256 = evm::shr(bits: (32 - len) * 8, value: shl_value)
+//         return u8(shr_value)
+//     }
+// }
+
+enum SchemaType {
+    U8(u8)
+    U16(u16)
+    // no arrays with complex types (db flattening)
+    // column types must be primitive types or arrays of primitive types
+
+    pub fn len(self) -> u256 {
+        match self {
+            SchemaType::U8(_) => { return 1 }
+            SchemaType::U16(_) => { return 2 }
+        }
+    }
+}
+
+struct Schema {
+    field_types: Array<>
+
+    // max size should be 28
+    pub fn new(field_types: Array<SchemaType, 2>) -> Self {
+        revert
+    }
+}
+
+struct MudDb {
+    // todo: we also need to add more granular data modifaction methods
+
+    pub fn get(table_id: u256, key: Array<u256, 8>) -> Array<SchemaType, 2> {
+        // todo try to implement this
+        revert
+    }
+
+    pub fn put(table_id: u256, key: Array<u256, 8>, value: SchemaType) {
+        // todo try to implement this
+        revert
+    }
+}
+
+// {
+//     let reader = 
+//     let my_value_of_type = MyTypeImplMudDecode::mud_decode(reader)
+// }
+
+// struct StoreReader {
+//     start: u256
+//     cur: u256
+// }
+
+// struct StoreWriter {
+//     start: u256
+//     cur: u256
+// }
+
+// trait MudEncode {
+//     fn mud_encode(self, writer: StoreWriter)
+// }
+
+// impl MudEncode for u256 {
+//     fn mud_encode(self, writer: StoreWriter) {
+//         writer.writer(self)
+//     }
+// }
+
+// struct Store {
+//     pub fn read<T: MudDecode>() {
+
+//     }
+// }
+
+#test
+fn simple_example() {
+    let position_schema: Schema = Schema::new(field_types: [SchemaType::U8(0), SchemaType::U8(0)])
+}
