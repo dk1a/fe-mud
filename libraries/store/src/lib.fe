@@ -18,6 +18,15 @@ use std::evm
 //     }
 // }
 
+contract Store {
+    // how to deal with garbage bytes?
+    // committment scheme to guarantee coherence?
+    // define simple store RW functions
+    pub fn __init__() {
+        evm::calldataload(0)
+    }
+}
+
 enum SchemaType {
     U8(u8)
     U16(u16)
@@ -41,18 +50,34 @@ struct Schema {
     }
 }
 
-struct MudDb {
+// there are two store modes
+// - RW external contract state
+// - RW internal contract state
+enum TableClient {
+    internal
+    external(address)
+    // compile-time
+    // - all table schemas should be known by store at compile-time
+
+    // runtime
+    // - based on the table id and item key we can retreive the value
+
     // todo: we also need to add more granular data modifaction methods
-
-    pub fn get(table_id: u256, key: Array<u256, 8>) -> Array<SchemaType, 2> {
+    pub fn get(self, table_id: u256, key: Array<u256, 8>) -> Array<SchemaType, 2> {
         // todo try to implement this
         revert
     }
 
-    pub fn put(table_id: u256, key: Array<u256, 8>, value: SchemaType) {
+    pub fn put(self, table_id: u256, key: Array<u256, 8>, value: SchemaType) {
         // todo try to implement this
+        // evm::sstore(addr, value)
         revert
     }
+}
+
+trait StoreEncode {
+    fn encode(self) -> MemoryBuffer;
+    fn decode(buf: MemoryBuffer) -> Self;
 }
 
 // {
