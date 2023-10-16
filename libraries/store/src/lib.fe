@@ -1,84 +1,57 @@
 use std::evm
 
-// struct CachedSlotReader {
-//     cur: u256
-//     value: u256
+// enum SchemaType {
+//     U8(u8)
+//     U16(u16)
+//     // no arrays with complex types (db flattening)
+//     // column types must be primitive types or arrays of primitive types
 
-//     pub fn new(offset: u256) -> Self {
-//         return Self {
-//             value: evm::sloadn(offset),
-//             cur: 0
+//     pub fn len(self) -> u256 {
+//         match self {
+//             SchemaType::U8(_) => { return 1 }
+//             SchemaType::U16(_) => { return 2 }
 //         }
-//     }
-
-//     fn read_u8(len: u256) -> u8 {
-//         let shl_value: u256 = evm::shl(bits: cur * 8, value: self.value)
-//         let shr_value: u256 = evm::shr(bits: (32 - len) * 8, value: shl_value)
-//         return u8(shr_value)
 //     }
 // }
 
-contract Store {
-    // how to deal with garbage bytes?
-    // committment scheme to guarantee coherence?
-    // define simple store RW functions
-    pub fn __init__() {
-        evm::calldataload(0)
-    }
-}
+// struct Schema {
+//     field_types: Array<>
 
-enum SchemaType {
-    U8(u8)
-    U16(u16)
-    // no arrays with complex types (db flattening)
-    // column types must be primitive types or arrays of primitive types
+//     // max size should be 28
+//     pub fn new(field_types: Array<SchemaType, 2>) -> Self {
+//         revert
+//     }
+// }
 
-    pub fn len(self) -> u256 {
-        match self {
-            SchemaType::U8(_) => { return 1 }
-            SchemaType::U16(_) => { return 2 }
-        }
-    }
-}
+// // there are two store modes
+// // - RW external contract state
+// // - RW internal contract state
+// enum TableClient {
+//     Internal
+//     External(address)
+//     // compile-time
+//     // - all table schemas should be known by store at compile-time
 
-struct Schema {
-    field_types: Array<>
+//     // runtime
+//     // - based on the table id and item key we can retreive the value
 
-    // max size should be 28
-    pub fn new(field_types: Array<SchemaType, 2>) -> Self {
-        revert
-    }
-}
+//     // todo: we also need to add more granular data modifaction methods
+//     pub fn get(self, table_id: u256, key: Array<u256, 8>) -> Array<SchemaType, 2> {
+//         // todo try to implement this
+//         revert
+//     }
 
-// there are two store modes
-// - RW external contract state
-// - RW internal contract state
-enum TableClient {
-    internal
-    external(address)
-    // compile-time
-    // - all table schemas should be known by store at compile-time
+//     pub fn put(self, table_id: u256, key: Array<u256, 8>, value: SchemaType) {
+//         // todo try to implement this
+//         // evm::sstore(addr, value)
+//         revert
+//     }
+// }
 
-    // runtime
-    // - based on the table id and item key we can retreive the value
-
-    // todo: we also need to add more granular data modifaction methods
-    pub fn get(self, table_id: u256, key: Array<u256, 8>) -> Array<SchemaType, 2> {
-        // todo try to implement this
-        revert
-    }
-
-    pub fn put(self, table_id: u256, key: Array<u256, 8>, value: SchemaType) {
-        // todo try to implement this
-        // evm::sstore(addr, value)
-        revert
-    }
-}
-
-trait StoreEncode {
-    fn encode(self) -> MemoryBuffer;
-    fn decode(buf: MemoryBuffer) -> Self;
-}
+// trait StoreEncode {
+//     fn encode(self) -> MemoryBuffer;
+//     fn decode(buf: MemoryBuffer) -> Self;
+// }
 
 // {
 //     let reader = 
@@ -111,7 +84,7 @@ trait StoreEncode {
 //     }
 // }
 
-#test
-fn simple_example() {
-    let position_schema: Schema = Schema::new(field_types: [SchemaType::U8(0), SchemaType::U8(0)])
-}
+// #test
+// fn simple_example() {
+//     let position_schema: Schema = Schema::new(field_types: [SchemaType::U8(0), SchemaType::U8(0)])
+// }

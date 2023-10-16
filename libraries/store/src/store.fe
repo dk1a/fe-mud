@@ -1,0 +1,48 @@
+use std::evm
+use std::buf::{
+    MemoryBuffer, 
+    RawCallBuffer,
+    MemoryBufferWriter,
+    MemoryBufferReader
+}
+
+contract Store {
+    // Simple binary interface for reading and writing to contract state.
+    pub unsafe fn __call__() {
+        // 0 for read; 1 for write
+        let selector: u256 = evm::call_data_load(offset: 0)
+
+        if selector == 0 {
+            let key_len: u256 = evm::call_data_size() - 32
+            let key_buf: MemoryBuffer = MemoryBuffer::new(len: key_len)
+            evm::call_data_copy(buf: key_buf, from_offset: 32)
+
+            let slot: u256 = std::precompiles::sha2_256(buf)
+
+            evm::return_mem()
+        } else {
+            let key_len: u256 = evm::call_data_load(offset: 32)
+            let mut key_buf: MemoryBuffer = MemoryBuffer::new(len: key_len)
+            evm::call_data_copy(buf: key_buf, from_offset: 64)
+
+            let data_len: u256 = evm::call_data_size() - 64 - key_len
+            let data_buf: MemoryBuffer = MemoryBuffer::new(len: data_len)
+
+            // copy data directly from calldata into storage
+        }
+    }
+}
+
+#test
+fn test_store_rw(mut ctx: Context) {
+    let addr: address = address(Store.create(ctx, 0))
+    let mut buf: RawCallBuffer = RawCallBuffer::new(input_len: 64, output_len: 32)
+
+    let mut writer1: MemoryBufferWriter = buf.writer()
+    writer1.write(value: 0)
+    writer1.write(value: 42)
+    assert ctx.raw_call(addr, value: 0, buf)
+
+    let mut reader1: MemoryBufferReader = buf.reader()
+    assert reader1.read_u256() == 0
+}
