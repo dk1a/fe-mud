@@ -6,56 +6,74 @@ use std::buf::{
     MemoryBufferReader
 }
 
-contract Store {
+pub contract Store {
     // Simple binary interface for reading and writing to contract state.
     // 
     // For reads, the interface is defined as:
     //
-    // input: selector (32 bytes), key (dynamic)
+    // input: selector (32 bytes), return size(32 bytes) key (dynamic)
     // output: value (dynamic) 
+    //
+    // note: return length represents the number of slots (32 bytes each)
     //
     // For writes, the interface is defined as:
     // 
     // input: selector (32 bytes), key length (32 bytes), key (dynamic), value (dynamic)
-    //
-    // note: at this point the value being stored is fixed to 32.
+    // output: none
     //
     // todos: 
     //  - change selector to a single byte
-    //  - proper output lengths
     pub unsafe fn __call__() {
         // 0 for read; 1 for write
         let selector: u256 = evm::call_data_load(offset: 0)
 
         if selector == 0 {
-            let key_len: u256 = evm::call_data_size() - 32
+            // grab the return length
+            let value_len: u256 = evm::call_data_load(offset: 32) 
+            // calculate the key length from the calldata size
+            let key_len: u256 = evm::call_data_size() - 64
+            // copy the key from calldata to memory
             let mut key_buf: MemoryBuffer = MemoryBuffer::new(len: key_len)
-            evm::call_data_copy(buf: key_buf, from_offset: 32)
+            evm::call_data_copy(buf: key_buf, from_offset: 64)
+            // hash the key and get the value from the storage slot
             let slot_offset: u256 = std::precompiles::sha2_256(buf: key_buf)
-            let slot_value: u256 = evm::sload(offset: slot_offset)
 
-            // how do we know the size of the read data?
-            let mut return_buf: MemoryBuffer = MemoryBuffer::new(len: 32)
+            // create the return buffer and write each slot to it 
+            let mut return_buf: MemoryBuffer = MemoryBuffer::new(len: value_len * 32)
             let mut return_writer: MemoryBufferWriter = return_buf.writer()
-            return_writer.write(value: slot_value)
+            
+            let mut cur_slot: u256 = 0
+            while cur_slot < value_len {
+                // load the slot value and write it to the buffer
+                return_writer.write(value: evm::sload(offset: slot_offset + cur_slot))
+                cur_slot += 1
+            }
 
             evm::return_mem(buf: return_buf)
-        } else {
+        } else if selector  == 1 {
+            // grab the key length
             let key_len: u256 = evm::call_data_load(offset: 32)
+            // copy the key into a buffer and compute the slot offset 
             let mut key_buf: MemoryBuffer = MemoryBuffer::new(len: key_len)
             evm::call_data_copy(buf: key_buf, from_offset: 64)
             let slot_offset: u256 = std::precompiles::sha2_256(buf: key_buf)
 
-            // assume length of 32 
-            // let data_len: u256 = evm::call_data_size() - 64 - key_len
-            // let data_buf: MemoryBuffer = MemoryBuffer::new(len: data_len)
-            let data_value: u256 = evm::call_data_load(offset: 64 + key_len)
-            evm::sstore(offset: slot_offset, value: data_value)
+            // value length must be a multiple of 32
+            let value_len: u256 = (evm::call_data_size() - 64 - key_len) / 32
+
+            let mut cur_slot: u256 = 0
+            while cur_slot < value_len {
+                // load the slot value and write it to storage 
+                let sto_offset: u256 = slot_offset + cur_slot
+                let call_data_offset: u256 = 64 + key_len + cur_slot * 32
+                evm::sstore(offset: sto_offset, value: evm::call_data_load(offset: call_data_offset))
+                cur_slot += 1
+            }
         }
     }
 }
 
-struct StoreAccessor {
+pub struct StoreAccessor {
     addr: address
 
     pub fn new(addr: address) -> Self {
@@ -63,12 +81,13 @@ struct StoreAccessor {
     }
 
     pub fn read(self, key: u256) -> u256 {
-        let mut buf: RawCallBuffer = RawCallBuffer::new(input_len: 64, output_len: 32)
+        let mut buf: RawCallBuffer = RawCallBuffer::new(input_len: 96, output_len: 32)
 
         let mut writer: MemoryBufferWriter = buf.writer()
         let mut reader: MemoryBufferReader = buf.reader()
 
         writer.write(value: 0) // read selector
+        writer.write(value: 1) // value length in number of words (32 bytes)
         writer.write(value: key)
 
         unsafe { 
