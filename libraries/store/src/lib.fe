@@ -26,11 +26,11 @@ use store::{Store, StoreAccessor}
 //     }
 // }
 
-struct TableClient {
+struct Table {
     accessor: StoreAccessor
 
     pub fn new(accessor: StoreAccessor) -> Self {
-        return TableClient(accessor)
+        return Table(accessor)
     }
 
     pub fn get<T: StoreEncode>(
@@ -91,10 +91,10 @@ impl StoreEncode for U256Wrapper {
 }
 
 #test
-fn test_table_client(mut ctx: Context) {
+fn test_table(mut ctx: Context) {
     let addr: address = address(Store.create(ctx, 0))
     let accessor: StoreAccessor = StoreAccessor::new(addr)
-    let table: TableClient = TableClient::new(accessor)
+    let table: Table = Table::new(accessor)
 
     let table_id: u256 = 42
     let key: u256 = 26
