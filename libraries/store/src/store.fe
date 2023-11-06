@@ -11,7 +11,7 @@ pub contract Store {
     // 
     // For reads, the interface is defined as:
     //
-    // input: selector (32 bytes), return size(32 bytes) key (dynamic)
+    // input: selector (32 bytes), return size(32 bytes), key (dynamic)
     // output: value (dynamic) 
     //
     // note: return length represents the number of slots (32 bytes each)
@@ -110,6 +110,50 @@ pub struct StoreAccessor {
             assert evm::call(gas: evm::gas_remaining(), addr: self.addr, value: 0, buf) 
         }
     }
+
+    pub fn read_buf(
+        self, 
+        table_id: u256, 
+        key: u256,
+        len: u256
+    ) -> MemoryBuffer {
+        let mut buf: RawCallBuffer = RawCallBuffer::new(input_len: 128, output_len: len)
+
+        let mut writer: MemoryBufferWriter = buf.writer()
+        let mut reader: MemoryBufferReader = buf.reader()
+
+        writer.write(value: 0) // read selector
+        writer.write(value: len / 32) // value length in number of words (32 bytes)
+        writer.write(value: table_id)
+        writer.write(value: key)
+
+        unsafe { 
+            assert evm::call(gas: evm::gas_remaining(), addr: self.addr, value: 0, buf) 
+        }
+
+        return reader.read_buf(len)
+    }
+
+
+    pub fn write_buf(self,
+        table_id: u256, 
+        key: u256,
+        value: MemoryBuffer
+    ) {
+        let mut buf: RawCallBuffer = RawCallBuffer::new(input_len: 128 + value.len(), output_len: 0)
+
+        let mut writer: MemoryBufferWriter = buf.writer()
+        writer.write(value: 1) // write selector
+        writer.write(value: 64) // key length
+        writer.write(value: table_id)
+        writer.write(value: key) // 128 
+        writer.write_buf(buf: value) // 128 + buf.len()
+
+        unsafe { 
+            assert evm::call(gas: evm::gas_remaining(), addr: self.addr, value: 0, buf) 
+        }
+    }
+
 }
 
 #test

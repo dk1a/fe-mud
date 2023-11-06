@@ -1,4 +1,7 @@
 use std::evm
+// panics if these are not imported
+use std::buf::{MemoryBuffer, MemoryBufferReader, MemoryBufferWriter}
+use store::{Store, StoreAccessor}
 
 // enum SchemaType {
 //     U8(u8)
@@ -23,68 +26,82 @@ use std::evm
 //     }
 // }
 
-// // there are two store modes
-// // - RW external contract state
-// // - RW internal contract state
-// enum TableClient {
-//     Internal
-//     External(address)
-//     // compile-time
-//     // - all table schemas should be known by store at compile-time
+struct TableClient {
+    accessor: StoreAccessor
 
-//     // runtime
-//     // - based on the table id and item key we can retreive the value
+    pub fn new(accessor: StoreAccessor) -> Self {
+        return TableClient(accessor)
+    }
 
-//     // todo: we also need to add more granular data modifaction methods
-//     pub fn get(self, table_id: u256, key: Array<u256, 8>) -> Array<SchemaType, 2> {
-//         // todo try to implement this
-//         revert
-//     }
+    pub fn get<T: StoreEncode>(
+        self, 
+        table_id: u256, 
+        key: u256, 
+        mut value: T
+    ) {
+        let buf: MemoryBuffer = self.accessor.read_buf(
+            table_id, 
+            key, 
+            len: value.encode_len()
+        )
+        let mut reader: MemoryBufferReader = buf.reader()
+        value.store_decode(reader)
+    }
 
-//     pub fn put(self, table_id: u256, key: Array<u256, 8>, value: SchemaType) {
-//         // todo try to implement this
-//         // evm::sstore(addr, value)
-//         revert
-//     }
-// }
 
-// trait StoreEncode {
-//     fn encode(self) -> MemoryBuffer;
-//     fn decode(buf: MemoryBuffer) -> Self;
-// }
+    pub fn put<T: StoreEncode>(
+        self, 
+        table_id: u256, 
+        key: u256, 
+        value: T
+    ) {
+        let mut buf: MemoryBuffer = MemoryBuffer::new(len: value.encode_len())
+        let mut writer: MemoryBufferWriter = buf.writer()
+        value.store_encode(writer)
+        self.accessor.write_buf(table_id, key, value: buf)
+    }
+}
 
-// {
-//     let reader = 
-//     let my_value_of_type = MyTypeImplMudDecode::mud_decode(reader)
-// }
+struct U256Wrapper {
+    pub inner: u256
 
-// struct StoreReader {
-//     start: u256
-//     cur: u256
-// }
+    pub fn new(inner: u256) -> Self {
+        return U256Wrapper(inner)
+    }
+}
 
-// struct StoreWriter {
-//     start: u256
-//     cur: u256
-// }
+trait StoreEncode {
+    fn encode_len(self) -> u256;
+    fn store_encode(self, mut writer: MemoryBufferWriter);
+    fn store_decode(self, mut reader: MemoryBufferReader);
+}
 
-// trait MudEncode {
-//     fn mud_encode(self, writer: StoreWriter)
-// }
+impl StoreEncode for U256Wrapper {
+    fn encode_len(self) -> u256 {
+        return 32
+    }
 
-// impl MudEncode for u256 {
-//     fn mud_encode(self, writer: StoreWriter) {
-//         writer.writer(self)
-//     }
-// }
+    fn store_encode(self, mut writer: MemoryBufferWriter) {
+        writer.write(value: self.inner)
+    }
 
-// struct Store {
-//     pub fn read<T: MudDecode>() {
+    fn store_decode(mut self, mut reader: MemoryBufferReader) {
+        self.inner = reader.read_u256()
+    }
+}
 
-//     }
-// }
+#test
+fn test_table_client(mut ctx: Context) {
+    let addr: address = address(Store.create(ctx, 0))
+    let accessor: StoreAccessor = StoreAccessor::new(addr)
+    let table: TableClient = TableClient::new(accessor)
 
-// #test
-// fn simple_example() {
-//     let position_schema: Schema = Schema::new(field_types: [SchemaType::U8(0), SchemaType::U8(0)])
-// }
+    let table_id: u256 = 42
+    let key: u256 = 26
+
+    table.put(table_id, key, value: U256Wrapper::new(inner: 100))
+
+    let mut decoded_value: U256Wrapper = U256Wrapper::new(inner: 0)
+    table.get(table_id, key, value: decoded_value)
+    assert decoded_value.inner == 100
+}
