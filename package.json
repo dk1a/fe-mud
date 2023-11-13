@@ -1,0 +1,9 @@
+{
+  "name": "fe-mud",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm run --recursive build",
+    "test": "pnpm run --recursive test"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "store",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "fe build --overwrite -o out src/store.fe",
+    "test": "fe test"
+  }
+}
+  
