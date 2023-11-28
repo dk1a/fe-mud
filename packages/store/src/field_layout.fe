@@ -1,4 +1,5 @@
 use std::evm
+use constants::{WORD_SIZE, WORD_LAST_INDEX, BYTE_TO_BITS, MAX_TOTAL_FIELDS, MAX_DYNAMIC_FIELDS}
 
 struct FieldLayoutLib_InvalidLength {
     pub length: u256
@@ -8,13 +9,7 @@ struct FieldLayoutLib_StaticLengthIsZero {
 struct FieldLayoutLib_StaticLengthDoesNotFitInAWord {
 }
 
-const WORD_SIZE: u256 = 32
-const WORD_LAST_INDEX: u256 = 31
-const BYTE_TO_BITS: u256 = 8
-const MAX_TOTAL_FIELDS: u256 = 28
-const MAX_DYNAMIC_FIELDS: u256 = 5
-
-struct FieldLayout {
+pub struct FieldLayout {
     inner: u256
 
     pub fn encode(staticFields: Array<u256, 28>, numStaticFields: u256, numDynamicFields: u256) -> Self {

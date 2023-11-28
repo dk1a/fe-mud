@@ -1,0 +1,17 @@
+/// @dev Represents the total byte length of an EVM word.
+pub const WORD_SIZE: u256 = 32
+
+/// @dev Represents the index of the last byte in an EVM word.
+pub const WORD_LAST_INDEX: u256 = 31
+
+/// @dev Represents the conversion constant from byte to bits.
+pub const BYTE_TO_BITS: u256 = 8
+
+/// @dev Represents the maximum number of fields a Schema can handle.
+pub const MAX_TOTAL_FIELDS: u256 = 28
+
+/// @dev Represents the maximum number of static fields in a FieldLayout.
+pub const MAX_STATIC_FIELDS: u256 = 28
+
+/// @dev Represents the maximum number of dynamic fields that can be packed in a PackedCounter.
+pub const MAX_DYNAMIC_FIELDS: u256 = 5
