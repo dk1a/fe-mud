@@ -1,5 +1,5 @@
 use std::evm
-use constants::{WORD_SIZE, WORD_LAST_INDEX, BYTE_TO_BITS, MAX_TOTAL_FIELDS, MAX_DYNAMIC_FIELDS}
+use ingot::constants::{WORD_SIZE, WORD_LAST_INDEX, BYTE_TO_BITS, MAX_TOTAL_FIELDS, MAX_DYNAMIC_FIELDS}
 
 struct FieldLayoutLib_InvalidLength {
     pub length: u256
