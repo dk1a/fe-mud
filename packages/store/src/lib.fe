@@ -3,8 +3,6 @@ use std::evm
 use std::buf::{MemoryBuffer, MemoryBufferReader, MemoryBufferWriter}
 use store::{Store, StoreAccessor}
 
-use field_layout::{FieldLayout}
-
 // enum SchemaType {
 //     U8(u8)
 //     U16(u16)
