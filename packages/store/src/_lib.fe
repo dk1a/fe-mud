@@ -1,0 +1,204 @@
+use std::evm
+
+// ---------------- constants.fe ----------------
+
+/// @dev Represents the total byte length of an EVM word.
+pub const WORD_SIZE: u256 = 32
+
+/// @dev Represents the index of the last byte in an EVM word.
+pub const WORD_LAST_INDEX: u256 = 31
+
+/// @dev Represents the conversion constant from byte to bits.
+pub const BYTE_TO_BITS: u256 = 8
+
+/// @dev Represents the maximum number of fields a Schema can handle.
+pub const MAX_TOTAL_FIELDS: u256 = 28
+
+/// @dev Represents the maximum number of static fields in a FieldLayout.
+pub const MAX_STATIC_FIELDS: u256 = 28
+
+/// @dev Represents the maximum number of dynamic fields that can be packed in a PackedCounter.
+pub const MAX_DYNAMIC_FIELDS: u256 = 5
+
+
+/// @notice Represents the total length offset within the EVM word.
+pub const TOTAL_LENGTH: u256 = (WORD_SIZE - 2) * BYTE_TO_BITS
+
+/// @notice Represents the number of static fields offset within the EVM word.
+pub const NUM_STATIC_FIELDS: u256 = (WORD_SIZE - 2 - 1) * BYTE_TO_BITS
+
+/// @notice Represents the number of dynamic fields offset within the EVM word.
+pub const NUM_DYNAMIC_FIELDS: u256 = (WORD_SIZE - 2 - 1 - 1) * BYTE_TO_BITS
+
+// ---------------- field_layout.fe ----------------
+
+// use constants::{WORD_SIZE, WORD_LAST_INDEX, BYTE_TO_BITS, MAX_TOTAL_FIELDS, MAX_DYNAMIC_FIELDS}
+
+struct FieldLayoutLib_InvalidLength {
+    pub length: u256
+}
+struct FieldLayoutLib_StaticLengthIsZero {
+}
+struct FieldLayoutLib_StaticLengthDoesNotFitInAWord {
+}
+
+pub struct FieldLayout {
+    inner: u256
+
+    pub fn encode(staticFields: Array<u256, 28>, numStaticFields: u256, numDynamicFields: u256) -> Self {
+        let mut fieldLayout: u256
+        let mut totalLength: u256
+        let totalFields: u256 = numStaticFields + numDynamicFields;
+
+        if numStaticFields > MAX_TOTAL_FIELDS {
+            // TODO remove the need for numStaticFields by using a dynamic array
+            revert FieldLayoutLib_InvalidLength(length: numStaticFields)
+        }
+
+        if totalFields > MAX_TOTAL_FIELDS {
+            revert FieldLayoutLib_InvalidLength(length: totalFields)
+        }
+        if numDynamicFields > MAX_DYNAMIC_FIELDS {
+            revert FieldLayoutLib_InvalidLength(length: numDynamicFields)
+        }
+
+        // Compute the total static length and store the field lengths in the encoded fieldLayout
+        let mut i: u256 = 0
+        while (i < numStaticFields) {
+            let staticByteLength: u256 = staticFields[i]
+
+            if staticByteLength == 0 {
+                revert FieldLayoutLib_StaticLengthIsZero()
+            } else if staticByteLength > WORD_SIZE {
+                revert FieldLayoutLib_StaticLengthDoesNotFitInAWord()
+            }
+
+            totalLength += staticByteLength
+            fieldLayout |= staticByteLength << ((WORD_LAST_INDEX - 4 - i) * BYTE_TO_BITS)
+
+            i += 1
+        }
+
+        return FieldLayout(inner: fieldLayout)
+    }
+
+    pub fn atIndex(
+        self, 
+        index: u256
+    ) -> u256 {
+        return u8(self.inner >> ((WORD_LAST_INDEX - 4 - index) * BYTE_TO_BITS))
+    }
+
+    pub fn numStaticFields(self) -> u256 {
+        return u8(self.inner >> NUM_STATIC_FIELDS)
+    }
+}
+
+#test
+fn test_field_layout(mut ctx: Context) {
+    let mut staticFields: Array<u256, 28> = [1, 2, 4, 16, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    staticFields[0] = 1
+    staticFields[1] = 2
+    staticFields[2] = 4
+    staticFields[3] = 16
+    staticFields[4] = 32
+    let field_layout: FieldLayout = FieldLayout::encode(staticFields, numStaticFields: 5, numDynamicFields: 1)
+
+    assert field_layout.atIndex(index: 0) == 1
+    assert field_layout.atIndex(index: 1) == 2
+    assert field_layout.atIndex(index: 2) == 4
+    assert field_layout.atIndex(index: 3) == 16
+    assert field_layout.atIndex(index: 4) == 32
+    assert field_layout.atIndex(index: 5) == 0
+}
+
+// ---------------- store_core.fe ----------------
+
+use std::buf::{
+    MemoryBuffer, 
+    MemoryBufferWriter,
+    MemoryBufferReader
+}
+
+// TODO should be keccak256("mud.store")
+const SLOT: u256 = 123
+
+pub contract StoreCore {
+    pub fn getField(
+        self,
+        tableId: u256,
+        keyTuple: u256,
+        fieldIndex: u8,
+        fieldLayout: FieldLayout
+    ) -> u256 {
+        return _getStaticFieldBytes(tableId, keyTuple, fieldIndex, fieldLayout)
+        // TODO dynamic fields
+        // return getDynamicField(tableId, keyTuple, fieldIndex - uint8(fieldLa
+    }
+
+    pub fn setField(
+        self,
+        tableId: u256,
+        keyTuple: u256,
+        fieldIndex: u8,
+        data: u256,
+        fieldLayout: FieldLayout
+    ) {
+        self.setStaticField(tableId, keyTuple, fieldIndex, data, fieldLayout)
+    }
+
+    pub fn setStaticField(
+        self,
+        tableId: u256,
+        keyTuple: u256,
+        fieldIndex: u8,
+        data: u256,
+        fieldLayout: FieldLayout
+    ) {
+        unsafe {
+            evm::sstore(offset: _getStaticDataLocation(tableId, keyTuple), value: data)
+        }
+    }
+
+    fn _getStaticDataLocation(tableId: u256, keyTuple: u256) -> u256 {
+        let mut buf: MemoryBuffer = MemoryBuffer::new(len: 32 + 32)
+        let mut writer: MemoryBufferWriter = buf.writer()
+
+        writer.write(value: tableId)
+        writer.write(value: keyTuple)
+
+        let slot_offset: u256 = std::precompiles::sha2_256(buf: buf)
+        return u256(SLOT ^ std::precompiles::sha2_256(buf))
+    }
+
+    fn _getStaticFieldBytes(
+        tableId: u256,
+        keyTuple: u256,
+        fieldIndex: u8,
+        fieldLayout: FieldLayout
+    ) -> u256 {
+        unsafe {
+            return evm::sload(offset: _getStaticDataLocation(tableId, keyTuple))
+        }
+    }
+
+}
+
+#test
+fn test_get_field(mut ctx: Context) {
+    let store: StoreCore = StoreCore.create(ctx, 0)
+
+    let tableId: u256 = 123
+    let keyTuple: u256 = 1
+    let fieldIndex: u8 = 0
+
+    let mut staticFields: Array<u256, 28> = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let fieldLayout: FieldLayout = FieldLayout::encode(staticFields, numStaticFields: 1, numDynamicFields: 0)
+
+    let data: u256 = 1111
+    store.setField(tableId, keyTuple, fieldIndex, data, fieldLayout)
+
+    let result: u256 = store.getField(tableId, keyTuple, fieldIndex, fieldLayout)
+
+    assert result == data
+}
