@@ -1,0 +1,48 @@
+
+trait TableFieldData {
+    // field encoding functions
+}
+
+trait TableData {
+    // record encoding functions
+
+    // and somehow an array/struct of TableFieldData, where the length is a const generic?
+}
+
+trait TableMethods<T: TableData> {
+    fn getRecord(self) -> T;
+    fn setRecord(self, data: T);
+
+    fn getField<TableField>(self) -> TableField; // ??
+}
+
+trait TableFieldMethod<const N: u8, T: TableFieldData> {
+    fn getField<N>(self) -> TableField; // ?? 
+    // need multiple `getField` methods, differentiated by `N` (or struct member name, which seems even harder)
+}
+
+//impl<const N: u8> TableFieldMethod<N> for
+
+trait TableMethods<T1: TableFieldData, ..., Tn: TableFieldData> {
+    fn getField<T1>(self) -> T1;
+    ...
+    fn getField<Tn>(self) -> Tn;
+}
+
+
+
+struct MUDu256 {
+    pub inner: u256
+
+    pub fn new(inner: u256) -> Self {
+        return MUDu256(inner)
+    }
+}
+
+impl TableFieldData for U256Wrapper {
+    // implement field encoding
+}
+
+impl TableData for U256Wrapper {
+    // implement record encoding
+}
